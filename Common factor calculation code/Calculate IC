@@ -1,2 +1,71 @@
-## Calculate Information Coefficient (IC)
+# Calculate Information Coefficient (IC)
 
+# Import necessary libraries for statistical modeling, data manipulation, and numerical operations.
+import statsmodels.api as sm
+import pandas as pd
+import numpy as np
+from tqdm import tqdm
+import warnings
+from sklearn.linear_model import LinearRegression
+
+# Ignore warnings to keep the output clean.
+warnings.filterwarnings('ignore')
+
+--
+def Calculate_IC(factor_df, chgpct_df, Pool_df):
+    """
+    Calculates the Information Coefficient (IC) and Information Ratio (ICIR).
+    
+    Parameters:
+    - factor_df: DataFrame containing factor values of multiple stocks over time.
+    - chgpct_df: DataFrame containing percentage changes (returns) of stocks.
+    - Pool_df: DataFrame that specifies which stocks are included in the stock pool (where '是' means "yes").
+    
+    Returns:
+    - IC_mean: Mean of the Information Coefficient.
+    - IC_std: Standard deviation of the Information Coefficient.
+    - ICIR: Information Coefficient Information Ratio.
+    """
+
+    # Extract the time index from factor_df to synchronize all data across the same time period.
+    time_index = list(factor_df.index)
+    
+    # Ensure Pool_df and chgpct_df have the same time index as factor_df.
+    Pool_df = Pool_df.loc[time_index, :]
+    chgpct_df = chgpct_df.loc[time_index, :]
+    
+    # Initialize an empty DataFrame to store IC values for each time step.
+    IC = pd.DataFrame(index=time_index, columns=['IC'])
+
+    # Iterate over all time steps except the last one.
+    for i in range(len(time_index)-1):
+        # Filter the stocks that are part of the pool at the current time step (where Pool_df contains '是').
+        stock_pool = Pool_df.iloc[i, :]
+        stock_pool = stock_pool[stock_pool == '是'].index
+
+        # Find the common stocks between the factor_df and the stock pool for the current time step.
+        pool = list(set(stock_pool).intersection(set(factor_df.columns)))
+        
+        # Get the factor values and percentage changes for the selected stocks at the current and next time steps.
+        factor = factor_df.loc[:, pool].iloc[i, :]
+        chgpct = chgpct_df.loc[:, pool].iloc[i+1, :]
+        
+        # Fill any missing factor values with 0 to avoid issues during correlation calculation.
+        factor.fillna(0, inplace=True)
+        
+        # Calculate the Pearson correlation between the factor values and future stock returns (IC).
+        temp_ic = factor.corr(chgpct, method='pearson')
+        
+        # Store the calculated IC for the current time step in the IC DataFrame.
+        IC.loc[time_index[i], 'IC'] = temp_ic
+
+    # Remove any rows where IC could not be calculated (i.e., where values are NaN).
+    IC = IC.dropna(axis=0, how='any')
+
+    # Calculate the mean, standard deviation, and Information Ratio (ICIR) of the IC values.
+    IC_mean = float(IC.mean())
+    IC_std = float(IC.std())
+    ICIR = IC_mean / IC_std
+
+    # Return the computed statistics.
+    return IC_mean, IC_std, ICIR

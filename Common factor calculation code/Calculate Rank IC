@@ -1,0 +1,27 @@
+# Calculate RankIC
+def Calculate_RankIC(factor_df, chgpct_df, Pool_df):
+    time_index = list(set(factor_df.index).intersection(set(chgpct_df.index)).intersection(set(Pool_df.index)))
+    time_index.sort()
+    factor_df = factor_df.loc[time_index,:]
+    Pool_df = Pool_df.loc[time_index,:]
+    chgpct_df = chgpct_df.loc[time_index,:]
+    RankIC = pd.DataFrame(index=time_index, columns=['RankIC'])
+
+    for i in range(len(time_index)-1):
+        time = time_index[i]
+        time_n = time_index[i+1]
+        stock_pool = Pool_df.loc[time, :]
+        stock_pool = stock_pool[stock_pool == '是'].index
+        pool = list(set(stock_pool).intersection(set(factor_df.columns)))
+        factor = factor_df.loc[time, pool]
+        chgpct = chgpct_df.loc[time_n, pool]
+        temp_rankic = factor.corr(chgpct, method='spearman')
+        RankIC.loc[time_index[i] , 'RankIC'] = temp_rankic
+
+    RankIC = RankIC.dropna(axis=0,how='any')
+    RankIC_mean = float(RankIC.mean())
+    RankIC_std  = float(RankIC.std())
+
+    RankICIR = RankIC_mean / RankIC_std
+
+    return RankIC, RankIC_mean , RankICIR

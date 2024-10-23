@@ -1,6 +1,6 @@
 
 
-# **Calculate Information Coefficient (IC)**
+# Calculate Information Coefficient (IC)
 
 This Python function computes the **Information Coefficient (IC)**, which measures the correlation between a given factor and future stock returns, and derives its summary statistics like mean, standard deviation, and Information Coefficient Information Ratio (ICIR).
 

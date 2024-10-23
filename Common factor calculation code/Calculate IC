@@ -1,131 +1,100 @@
 
 
-# Calculate Information Coefficient (IC)
+# **Calculate Information Coefficient (IC)**
 
-This Python function computes the **Information Coefficient (IC)**, which measures the correlation between a given factor and future stock returns, and derives its summary statistics like mean, standard deviation, and Information Coefficient Information Ratio (ICIR).
+This Python function calculates the **Information Coefficient (IC)** to evaluate the correlation between factor values and future stock returns over time.
 
-## **Code Overview**
-
-### **Imports:**
+## **Code Explanation**
 
 ```python
+# Import necessary libraries for statistical modeling, data manipulation, and numerical operations.
 import statsmodels.api as sm
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import warnings
-warnings.filterwarnings('ignore')
 from sklearn.linear_model import LinearRegression
+
+# Ignore warnings to keep the output clean.
+warnings.filterwarnings('ignore')
 ```
 
-- `statsmodels`, `pandas`, and `numpy`: Used for statistical analysis, data manipulation, and numerical operations.
-- `tqdm`: Used for progress bars (not used in this version of the code).
-- `warnings`: Suppresses warnings for cleaner output.
-- `LinearRegression`: Imported but not utilized in this specific function.
-
----
-
-### **Function Definition:**
+### **Function: Calculate_IC**
 
 ```python
 def Calculate_IC(factor_df, chgpct_df, Pool_df):
-```
+    """
+    Calculates the Information Coefficient (IC) and Information Ratio (ICIR).
+    
+    Parameters:
+    - factor_df: DataFrame containing factor values of multiple stocks over time.
+    - chgpct_df: DataFrame containing percentage changes (returns) of stocks.
+    - Pool_df: DataFrame that specifies which stocks are included in the stock pool (where '是' means "yes").
+    
+    Returns:
+    - IC_mean: Mean of the Information Coefficient.
+    - IC_std: Standard deviation of the Information Coefficient.
+    - ICIR: Information Coefficient Information Ratio.
+    """
 
-This function calculates the **Information Coefficient (IC)**, which evaluates the correlation between a factor's values and stock returns.
-
-- **Parameters:**
-  - `factor_df`: DataFrame containing factor values for multiple stocks over time.
-  - `chgpct_df`: DataFrame with percentage change (returns) of the stocks.
-  - `Pool_df`: DataFrame indicating which stocks are in the pool at each time (where `'是'` indicates "yes").
-
----
-
-### **Data Synchronization and Preparation:**
-
-```python
+    # Extract the time index from factor_df to synchronize all data across the same time period.
     time_index = list(factor_df.index)
+    
+    # Ensure Pool_df and chgpct_df have the same time index as factor_df.
     Pool_df = Pool_df.loc[time_index, :]
     chgpct_df = chgpct_df.loc[time_index, :]
+    
+    # Initialize an empty DataFrame to store IC values for each time step.
     IC = pd.DataFrame(index=time_index, columns=['IC'])
-```
 
-- `time_index`: Extracts the time index from `factor_df` to ensure all DataFrames are aligned.
-- `IC`: Initializes an empty DataFrame to store the calculated IC values for each time step.
-
----
-
-### **Iterating Over Time Steps:**
-
-```python
+    # Iterate over all time steps except the last one.
     for i in range(len(time_index)-1):
+        # Filter the stocks that are part of the pool at the current time step (where Pool_df contains '是').
         stock_pool = Pool_df.iloc[i, :]
         stock_pool = stock_pool[stock_pool == '是'].index
-```
 
-- **Stock Pool Filtering:** The loop iterates over the time index, excluding the last time point (as IC is calculated between each period and the next one). `stock_pool` filters stocks based on the pool availability (`'是'` means "yes").
-
----
-
-### **Factor and Return Correlation Calculation:**
-
-```python
+        # Find the common stocks between the factor_df and the stock pool for the current time step.
         pool = list(set(stock_pool).intersection(set(factor_df.columns)))
+        
+        # Get the factor values and percentage changes for the selected stocks at the current and next time steps.
         factor = factor_df.loc[:, pool].iloc[i, :]
         chgpct = chgpct_df.loc[:, pool].iloc[i+1, :]
+        
+        # Fill any missing factor values with 0 to avoid issues during correlation calculation.
         factor.fillna(0, inplace=True)
+        
+        # Calculate the Pearson correlation between the factor values and future stock returns (IC).
         temp_ic = factor.corr(chgpct, method='pearson')
+        
+        # Store the calculated IC for the current time step in the IC DataFrame.
         IC.loc[time_index[i], 'IC'] = temp_ic
-```
 
-- **Matching Stocks:** The pool contains only the stocks that are present in both the `stock_pool` and `factor_df`.
-- **Factor and Change Selection:** For the selected stocks, `factor` holds the factor values at the current time, and `chgpct` holds the returns at the next time step.
-- **Filling Missing Values:** Any missing factor values are filled with `0`.
-- **Pearson Correlation:** `temp_ic` computes the Pearson correlation between factor values and future stock returns, representing the IC at the current time.
-- **Storing IC:** The computed IC is saved into the `IC` DataFrame.
-
----
-
-### **Clean-Up and Summary Statistics:**
-
-```python
+    # Remove any rows where IC could not be calculated (i.e., where values are NaN).
     IC = IC.dropna(axis=0, how='any')
+
+    # Calculate the mean, standard deviation, and Information Ratio (ICIR) of the IC values.
     IC_mean = float(IC.mean())
     IC_std = float(IC.std())
     ICIR = IC_mean / IC_std
+
+    # Return the computed statistics.
+    return IC_mean, IC_std, ICIR
 ```
 
-- **Remove `NaN` Values:** Drops rows with missing IC values.
-- **Summary Statistics:**
-  - `IC_mean`: The average IC over time.
-  - `IC_std`: The standard deviation of IC.
-  - `ICIR`: The Information Coefficient Information Ratio, calculated as the mean IC divided by its standard deviation.
+### **How It Works:**
 
----
+1. **Data Synchronization:**
+   - The function first ensures that all the input data (`factor_df`, `chgpct_df`, and `Pool_df`) are aligned by time using the same `time_index`.
+   
+2. **Iterating Over Time:**
+   - For each time step (except the last one), the function selects the stocks that are part of the stock pool (`'是'` or "yes") and finds the corresponding factor values.
+   
+3. **Calculating Information Coefficient (IC):**
+   - The function calculates the **Pearson correlation** between the factor values at the current time step and the stock returns at the next time step. This correlation is the IC, representing how well the factor predicts future returns.
+   
+4. **Cleaning Data:**
+   - Rows with missing IC values (`NaN`) are dropped to ensure the results are reliable.
+   
+5. **Summary Statistics:**
+   - Finally, the mean IC, its standard deviation, and the **Information Coefficient Information Ratio (ICIR)** are calculated and returned.
 
-### **Conclusion:**
-
-This function calculates the Information Coefficient (IC) and provides additional insights such as the IC mean, standard deviation, and ICIR. These metrics help to assess the predictive power of a factor with respect to future stock returns.
-
----
-
-## **Usage Example:**
-
-```python
-# Example DataFrames for factor values, returns, and stock pool
-factor_df = pd.DataFrame(...)  # Populate with actual data
-chgpct_df = pd.DataFrame(...)  # Populate with actual data
-Pool_df = pd.DataFrame(...)    # Populate with actual data
-
-# Call the function
-Calculate_IC(factor_df, chgpct_df, Pool_df)
-```
-
----
-
-## **License**
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
----
-
-You can copy and paste this markdown directly into your GitHub repository's `README.md` or documentation file.

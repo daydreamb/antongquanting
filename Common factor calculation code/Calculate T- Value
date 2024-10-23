@@ -1,0 +1,35 @@
+def Calculate_T(factor_df, chgpct_df, Pool_df):
+    # Ensure all dataframes have the same time index
+    time_index = factor_df.index
+    Pool_df = Pool_df.loc[time_index, :]
+    chgpct_df = chgpct_df.loc[time_index, :]
+    
+    # Initialize a DataFrame to store regression coefficients and T-values
+    res = pd.DataFrame(index=time_index[0:-1], columns=['regression coefficient', 'T-value']) 
+
+    # Loop through each time period except the last
+    for i in range(len(time_index) - 1):
+        stock_pool = Pool_df.iloc[i, :]
+        stock_pool = stock_pool[stock_pool == 'yes'].index
+        
+        # Find common stocks between factor_df and the stock pool
+        pool = list(set(stock_pool).intersection(set(factor_df.columns)))
+        
+        # Extract factor values and future returns for the selected stocks
+        factor = factor_df.loc[:, pool].iloc[i, :]
+        chgpct = chgpct_df.loc[:, pool].iloc[i + 1, :]
+        
+        # Add a constant (intercept) to the factor values
+        x = sm.add_constant(factor)
+        
+        # Fill missing factor values with the median
+        x = x.fillna(factor.median())
+        
+        # Perform an Ordinary Least Squares (OLS) regression
+        model = sm.OLS(chgpct, x).fit()
+        
+        # Store the regression coefficient and the T-value for the factor
+        res.iloc[i] = (model.params[1], model.tvalues[1])
+
+    # Return the mean of the absolute T-values
+    return res.abs().mean()['T- value']

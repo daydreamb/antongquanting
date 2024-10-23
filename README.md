@@ -7,7 +7,7 @@ This repository focuses on reproducing financial engineering research reports fr
 
 
 ## Overview
-This project aims to replicate financial research reports from top Chinese investment banks using Python. By leveraging data analysis, visualization, and financial modeling tools, we strive to reproduce complex reports with precision, ensuring insights are accessible to a broader audience. It is an educational initiative for those interested in quantitative finance, data science, and financial engineering.
+This project aims to replicate financial research reports from top Chinese investment banks using Python. By leveraging data analysis, visualization, and financial modeling tools, I strive to reproduce complex reports with precision, ensuring insights are accessible to a broader audience. It is an educational initiative for those interested in quantitative finance, data science, and financial engineering.
 
 Due to the lack of public disclosure of the exact algorithms used by these firms, our reproductions focus on achieving similar drawdown rates and RankIC values to those reported in the original research.
 

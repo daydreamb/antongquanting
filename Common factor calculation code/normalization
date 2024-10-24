@@ -1,0 +1,4 @@
+# 因子标准化
+def Z_score_standardization(factor_df):
+    factor_df_std = (factor_df.sub(factor_df.min(axis=1),axis=0)).div(factor_df.max(axis=1), axis=0)
+    return factor_df_std

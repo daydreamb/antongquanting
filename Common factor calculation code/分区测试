@@ -1,0 +1,60 @@
+
+# 分组测试：给定不同的分组结果进行分组测试
+def Multi_Group_Test(factor_df, daliy_chgpct_df, Pool_df, benchmark, group_num=5):
+    # 信息存储预设
+    col = [f'Group{i+1}' for i in range(group_num)]
+    group_info_df = pd.DataFrame(columns=col)
+    # 循环计算
+    time_int_index = list(set(factor_df.index).intersection(set(Pool_df.index)))
+    time_int_index.sort()
+    Pool_df = Pool_df.loc[time_int_index, :]
+    factor_df = factor_df.loc[time_int_index, :]
+
+    for i in range(len(time_int_index)-1):
+        # 截取区间收益
+        start = time_int_index[i]
+        end = time_int_index[i+1]
+        temp_chgpct = daliy_chgpct_df.loc[start:end, :]
+        # 筛选股票池与其对应的因子
+        stock_pool = Pool_df.iloc[i, :]
+        stock_pool = stock_pool[stock_pool == '是'].index
+        if len(stock_pool) == 0:
+            continue
+        else:
+            # 选取第i期的因子值，并依据此进行下一期股票筛选
+            pool = list(set(stock_pool).intersection(set(factor_df.columns)))
+            temp_factor = factor_df.iloc[i:i+1, :].loc[:, pool].T.dropna()
+            # 分组测试,从大到小排序
+            temp_factor = temp_factor.sort_values(by=temp_factor.columns[0], ascending=False)
+            chgpct_group = []
+            for n in range(group_num):
+                if n < group_num-1:
+                    num = int(len(temp_factor)/group_num)
+                    t_factor = temp_factor.iloc[n * num:(n + 1) * num]
+                    stock_part = t_factor.index
+                else:
+                    t_factor = temp_factor.iloc[n*num::]
+                    stock_part = t_factor.index
+                    num = len(temp_factor) - (group_num-1)*int(num)
+
+                stock_part = list(set(stock_part).intersection(set(temp_chgpct.columns)))
+                chgpct_part = temp_chgpct.loc[:, stock_part]
+                num = chgpct_part.shape[1]
+                W = np.array(num*[1/num])
+                # W = np.array((t_factor.T - t_factor.min()[0])/ (t_factor.max()[0] - t_factor.min()[0]))
+                # W = W/W.sum()
+                # W = np.array(t_factor / t_factor.sum()).T
+                chgpct_group.append(pd.DataFrame((chgpct_part*W).sum(axis=1)).rename(columns={0:f'Group{n+1}'}))
+            g_info = pd.concat(chgpct_group,axis=1)
+            group_info_df = pd.concat([group_info_df,g_info],axis=0)
+
+    Group_info_df = (group_info_df.shift().fillna(0) + 1).cumprod()
+    Group_info_df.index = Group_info_df.index.astype(str)
+    # 读取基准收益并进行处理
+    if benchmark:
+        benchmark_info = benchmark.loc[Group_info_df.index, :]
+        benchmark_info = (benchmark_info.shift().fillna(0) + 1).cumprod()
+        Group_info_excess = Group_info_df/benchmark_info
+        return Group_info_excess
+    else:
+        return Group_info_df, group_info_df

@@ -1,0 +1,50 @@
+
+# 计算因子风险指标：多头组合年化收益、最大回撤、收益波动比
+def Risk_indicators_of_Factor(rank_ic, factor_df, daliy_chgpct_df, Pool_df, pct=0.1):
+    '''
+    :param factor_df: 因子值
+    :param chgpct_df: 收益率
+    :param Pool_df: 股票池
+    :param pct: 筛选比例
+    :return: 因子风险指标
+    '''
+    time_int_index = list(set(factor_df.index).intersection(set(Pool_df.index)))
+    time_int_index.sort()
+    group_info_df = pd.DataFrame()
+    Pool_df = Pool_df.loc[time_int_index, :]
+    factor_df = factor_df.loc[time_int_index, :]
+    for i in range(len(time_int_index)-1):
+        # 截取区间收益
+        start = time_int_index[i]
+        end = time_int_index[i+1]
+        temp_chgpct = daliy_chgpct_df.loc[start:end, :]
+        # 筛选股票池与其对应的因子
+        stock_pool = Pool_df.iloc[i, :]
+        stock_pool = stock_pool[stock_pool == '是'].index
+        if len(stock_pool) == 0:
+            continue
+        else:
+            pool = list(set(stock_pool).intersection(set(factor_df.columns)))
+            temp_factor = factor_df.iloc[i:i+1:].loc[:, pool].T
+            temp_factor = temp_factor.sort_values(by=temp_factor.columns[0], ascending=False)
+            num = int(len(temp_factor)*pct)
+            if rank_ic >= 0:
+                t_factor = temp_factor.dropna().iloc[0:num]
+                stock_part = t_factor.index
+            else:
+                t_factor = temp_factor.dropna().iloc[-num::]
+                stock_part = t_factor.index
+
+            stock_part = list(set(stock_part).intersection(set(temp_chgpct.columns)))
+            chgpct_part = temp_chgpct.loc[:, stock_part]
+            num = chgpct_part.shape[1]
+            W = np.array(num*[1/num])
+            # W = np.array(t_factor / t_factor.sum()).T
+            g_info = pd.DataFrame((chgpct_part * W).sum(axis=1))
+            group_info_df = pd.concat([group_info_df, g_info], axis=0)
+
+    Group_info_df = (group_info_df.shift().fillna(0) + 1).cumprod()
+    Group_info_df.index = Group_info_df.index.astype(str)
+
+    risk_info = Risk_indicators_of_Nav(Group_info_df)
+    return risk_info

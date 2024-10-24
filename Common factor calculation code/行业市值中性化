@@ -1,0 +1,58 @@
+
+# 行业市值中性化
+def Industry_marketvalue_neutralization(factor_df, marketvalue_df, zx_industry_df):
+    '''
+    市值与行业中性化
+    :param factor_df: 初始因子矩阵
+    :param zx_industry_df: 中信行业分类矩阵
+    :param marketvalue_df: 市值矩阵
+    :return: 经过市值行业中性化后的因子值
+    '''
+    # 日期与股票数据对齐
+    index_factor = factor_df.index.tolist()
+    index_industry = zx_industry_df.index.tolist()
+    index_marketvalue = marketvalue_df.index.tolist()
+    col_factor = factor_df.columns.tolist()
+    col_industry = zx_industry_df.columns.tolist()
+    col_marketvalue = marketvalue_df.columns.tolist()
+
+    Index = list(set(index_factor).intersection(set(index_industry).intersection(set(index_marketvalue))))
+    Col = list(set(col_factor).intersection(set(col_industry).intersection(set(col_marketvalue))))
+    Index.sort()
+    Col.sort()
+
+    factor_df = factor_df.loc[Index, Col]
+    marketvalue_df = marketvalue_df.loc[Index, Col]
+    zx_industry_df = zx_industry_df.loc[Index, Col]
+
+    # 开始每期行业市值中性化
+    industry_list = zx_industry_df.iloc[-1, :].fillna('0').unique().tolist()
+    factor_industry_df = pd.DataFrame(index=factor_df.columns)
+    for date in tqdm(Index):
+        Y_train = factor_df.loc[[date],:].T
+        X1_train = marketvalue_df.loc[[date],:].T
+        industry_train = zx_industry_df.loc[[date],:].fillna('0').T
+        industry_vari = pd.DataFrame(columns=industry_list, index=Col)
+        for i in range(len(industry_train)):
+            stock_ = industry_train.iloc[[i], [0]].index.tolist()
+            indus_ = industry_train.iloc[i, 0]
+            industry_vari.loc[stock_, indus_] = 1
+        industry_vari = industry_vari.iloc[:,0:-1]
+        X_train = pd.concat([X1_train, industry_vari], axis=1)
+        X_train.fillna(0, inplace=True)
+        Y_train = Y_train.dropna()
+        y_index = Y_train.index.tolist()
+        x_index = X_train.index.tolist()
+        index = list(set(x_index).intersection(set(y_index)))
+        X_train = X_train.loc[index, :]
+        Y_train = Y_train.loc[index, :]
+        # 训练模型
+        LR = LinearRegression()
+        # X_train.fillna(0,inplace=True)
+
+        LR.fit(X_train, Y_train)
+        Y_coef = Y_train - np.dot(X_train, LR.coef_.T)
+        factor_industry_df = pd.concat([factor_industry_df,Y_coef], axis=1)
+
+    factor_industry_df = factor_industry_df.T
+    return factor_industry_df

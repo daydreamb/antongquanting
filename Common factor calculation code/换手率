@@ -1,0 +1,49 @@
+
+# 统计因子换手
+def Turnover_rate_of_factor(factor_df, Pool_df, pct=0.2):
+    '''
+    在给定股票池内计算因子换手：单边换手、双边换手（等权构建组合）
+    :param factor_df: 因子值
+    :param Pool_df:
+    :param pct:
+    :return:
+    '''
+
+    # 计算每期多头股票池
+    time_int_index = factor_df.index.tolist() + ['2023-10-31']
+    Pool_df = Pool_df[Pool_df.index.isin(time_int_index)]
+    factor_group_df = pd.DataFrame()
+    for i in range(len(time_int_index) - 1):
+        # 截取区间收益
+        start = time_int_index[i]
+        # 筛选股票池与其对应的因子
+        stock_pool = Pool_df.loc[start, :]
+        stock_pool = stock_pool[stock_pool == '是'].index
+        t_factor_df = factor_df.loc[start, stock_pool].dropna().sort_values(ascending=False)
+
+
+        long_stock = pd.DataFrame(t_factor_df.iloc[0:int(len(t_factor_df)*pct)].index).rename(columns={0:start})
+        factor_group_df = pd.concat([factor_group_df,long_stock],axis=1)
+
+    # 分期计算换手
+    turnover_df = pd.DataFrame()
+    for i in range(1, len(time_int_index)-1):
+        time = time_int_index[i]
+        # 提取当期和前一期的股票池，等权计算换手
+        p_last = factor_group_df.iloc[:, i-1].dropna()
+        p_now = factor_group_df.iloc[:, i].dropna()
+        p_same = list(set(p_now).intersection(set(p_last)))
+        # 计算需要买入和卖出的股票
+        p_last_l = list(set(p_last)-set(p_same))
+        p_now_l = list(set(p_now)-set(p_same))
+        # 计算换手
+        num = max(len(p_last),len(p_now))
+        t_single = max(len(p_last_l),len(p_now_l))/num
+        t_double = len(p_last_l)/num+len(p_now_l)/num
+        turnover = pd.DataFrame([t_single,t_double]).rename(columns={0:time}).T
+        turnover.columns = ['单边','双边']
+        turnover_df = pd.concat([turnover_df, turnover],axis=0)
+
+    turnover_df = pd.concat([turnover_df,pd.DataFrame(turnover_df.mean(axis=0)).T.rename(index={0:'均值'})])
+
+    return turnover_df

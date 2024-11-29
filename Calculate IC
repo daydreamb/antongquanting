@@ -1,0 +1,32 @@
+import statsmodels.api as sm
+import pandas as pd
+import numpy as np
+from tqdm import tqdm
+import warnings
+warnings.filterwarnings('ignore')
+from sklearn.linear_model import LinearRegression
+
+# Calculate IC
+def Calculate_IC(factor_df, chgpct_df, Pool_df):
+    time_index = list(factor_df.index)
+    Pool_df = Pool_df.loc[time_index, :]
+    chgpct_df = chgpct_df.loc[time_index, :]
+    IC = pd.DataFrame(index=time_index, columns=['IC'])
+
+    for i in range(len(time_index)-1):
+        stock_pool = Pool_df.iloc[i, :]
+        stock_pool = stock_pool[stock_pool == 'yes'].index
+
+        pool = list(set(stock_pool).intersection(set(factor_df.columns)))
+        factor = factor_df.loc[:, pool].iloc[i, :]
+        chgpct = chgpct_df.loc[:, pool].iloc[i+1, :]
+        factor.fillna(0, inplace=True)
+        temp_ic = factor.corr(chgpct, method='pearson')
+        IC.loc[time_index[i], 'IC'] = temp_ic
+    IC = IC.dropna(axis=0, how='any')
+
+    IC_mean = float(IC.mean())
+    IC_std = float(IC.std())
+    ICIR = IC_mean / IC_std
+
+    return IC , IC_mean , ICIR
